@@ -7,10 +7,10 @@
 # $HOME.
 #
 # Usage:
-#   ./install.sh              # full install
-#   ./install.sh --no-fonts   # skip Nerd Font installation
-#   ./install.sh --no-link    # only install packages, do not link configs
-#   ./install.sh --help
+#   ./install.sh
+#
+# The installer asks whether to install the Nerd Font and whether to apply the
+# configuration files, including the keyd keyboard remapping.
 #
 set -euo pipefail
 
@@ -22,24 +22,46 @@ LINK_CONFIGS=1
 info()  { printf '\n==> %s\n' "$*"; }
 warn()  { printf 'WARNING: %s\n' "$*" >&2; }
 
-usage() {
-    sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
-    exit 0
-}
+ask_yes_no() {
+    local prompt="$1"
+    local default="${2:-y}"
+    local suffix reply
 
-for arg in "$@"; do
-    case "$arg" in
-        --no-fonts) INSTALL_FONTS=0 ;;
-        --no-link)  LINK_CONFIGS=0 ;;
-        -h|--help)  usage ;;
-        *) warn "Unknown option: $arg"; usage ;;
+    case "$default" in
+        [nN]) suffix="[y/N]" ;;
+        *)    suffix="[Y/n]" ;;
     esac
-done
+
+    while true; do
+        if ! read -r -p "$prompt $suffix " reply; then
+            printf '\n'
+            return 1
+        fi
+
+        case "${reply:-$default}" in
+            [yY]|[yY][eE][sS]) return 0 ;;
+            [nN]|[nN][oO])     return 1 ;;
+            *) echo "Please answer y or n." ;;
+        esac
+    done
+}
 
 if [ "$(id -u)" -eq 0 ]; then
     SUDO=()
 else
     SUDO=(sudo)
+fi
+
+if [ -t 0 ]; then
+    if ! ask_yes_no "Install the MesloLGS NF Nerd Font?" y; then
+        INSTALL_FONTS=0
+    fi
+
+    if ! ask_yes_no "Apply configuration files and keyd keyboard remapping?" y; then
+        LINK_CONFIGS=0
+    fi
+else
+    warn "No interactive terminal detected; using default answers (yes to all)."
 fi
 
 # ---------------------------------------------------------------------------
@@ -84,7 +106,7 @@ install_keyd() {
     fi
 
     if [ "$LINK_CONFIGS" -ne 1 ]; then
-        echo "    skipping keyd config (--no-link)"
+        echo "    skipping keyd config (config linking declined)"
         return
     fi
 

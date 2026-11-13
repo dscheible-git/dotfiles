@@ -37,12 +37,17 @@ space     →   0
 ## Usage
 
 ```sh
-./install.sh              # full install
-./install.sh --no-fonts   # skip the MesloLGS NF font download
-./install.sh --no-link    # install packages only, do not link configs
+./install.sh
 ```
 
-The script installs:
+The installer is interactive and asks two questions:
+
+- whether to download and install the MesloLGS NF Nerd Font
+- whether to apply the configuration files, including the keyd keyboard
+  remapping
+
+Both default to yes. If no terminal is attached, the installer uses the
+default answers and prints a warning. It then installs:
 
 - apt packages: zsh, git, tmux, neovim, fzf, bat, ripgrep, lazygit, gdu,
   tree, xclip, build-essential, unzip and fontconfig
