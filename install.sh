@@ -2,8 +2,9 @@
 #
 # Dotfiles installer for dominik.
 #
-# Installs system packages, terminal tooling, shell/tmux plugins, fonts and
-# links the configuration files from this repository into $HOME.
+# Installs system packages, terminal tooling, shell/tmux plugins, keyd keyboard
+# remapping, fonts and links the configuration files from this repository into
+# $HOME.
 #
 # Usage:
 #   ./install.sh              # full install
@@ -67,6 +68,57 @@ install_apt_packages() {
 
     info "Installing apt packages"
     DEBIAN_FRONTEND=noninteractive "${SUDO[@]}" apt-get install -y "${CORE_PACKAGES[@]}"
+}
+
+# ---------------------------------------------------------------------------
+# keyd keyboard remapping
+# ---------------------------------------------------------------------------
+
+install_keyd() {
+    if ! command -v keyd >/dev/null 2>&1 && ! command -v keyd.rvaiya >/dev/null 2>&1; then
+        info "Installing keyd"
+        if ! DEBIAN_FRONTEND=noninteractive "${SUDO[@]}" apt-get install -y keyd; then
+            warn "keyd is not available in this distribution's repositories; skipping keyd setup."
+            return
+        fi
+    fi
+
+    if [ "$LINK_CONFIGS" -ne 1 ]; then
+        echo "    skipping keyd config (--no-link)"
+        return
+    fi
+
+    local src="$DOTFILES_DIR/keyd/default.conf"
+    local dest="/etc/keyd/default.conf"
+    local keyd_bin
+
+    if [ ! -e "$src" ]; then
+        warn "keyd config missing, skipping: $src"
+        return
+    fi
+
+    info "Installing keyd config"
+    "${SUDO[@]}" mkdir -p /etc/keyd
+
+    if [ -L "$dest" ]; then
+        "${SUDO[@]}" rm -f "$dest"
+    elif [ -e "$dest" ] && ! cmp -s "$src" "$dest"; then
+        local backup="${dest}.bak.$(date +%Y%m%d%H%M%S)"
+        echo "    backing up $dest -> $backup"
+        "${SUDO[@]}" cp "$dest" "$backup"
+    fi
+
+    # Copy instead of symlinking: keyd runs as root and its config can execute
+    # commands, so it must not point at a user-writable file.
+    "${SUDO[@]}" install -m 0644 "$src" "$dest"
+
+    "${SUDO[@]}" systemctl enable --now keyd
+
+    keyd_bin="$(command -v keyd || command -v keyd.rvaiya || true)"
+    if [ -n "$keyd_bin" ]; then
+        "${SUDO[@]}" "$keyd_bin" reload ||
+            warn "Could not reload keyd; run 'sudo keyd reload' manually."
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -231,6 +283,8 @@ install_oh_my_zsh
 if [ "$LINK_CONFIGS" -eq 1 ]; then
     link_configs
 fi
+
+install_keyd
 
 if [ "$INSTALL_FONTS" -eq 1 ]; then
     install_fonts
