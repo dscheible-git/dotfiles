@@ -40,14 +40,21 @@ space     →   0
 ./install.sh
 ```
 
-The installer is interactive and asks two questions:
+The installer is interactive and asks before each step whether to perform it:
 
-- whether to download and install the MesloLGS NF Nerd Font
-- whether to apply the configuration files, including the keyd keyboard
-  remapping
+- update apt and install the required packages
+- install Oh My Zsh, `zsh-autosuggestions` and Powerlevel10k
+- link the configuration files into `$HOME`
+- install keyd and apply the German keyboard remapping
+- install the MesloLGS NF Nerd Font
+- install Rust via rustup
+- install opencode
+- install the tmux plugin manager and plugins
 
-Both default to yes. If no terminal is attached, the installer uses the
-default answers and prints a warning. It then installs:
+Every question defaults to yes. If no terminal is attached, the installer
+answers yes to all of them and prints a warning.
+
+The available steps install:
 
 - apt packages: zsh, git, tmux, neovim, fzf, bat, ripgrep, lazygit, gdu,
   tree, xclip, build-essential, unzip and fontconfig

@@ -9,15 +9,12 @@
 # Usage:
 #   ./install.sh
 #
-# The installer asks whether to install the Nerd Font and whether to apply the
-# configuration files, including the keyd keyboard remapping.
+# The installer asks before each step (packages, shell, configs, keyd, fonts,
+# tools) whether to perform it.
 #
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-INSTALL_FONTS=1
-LINK_CONFIGS=1
 
 info()  { printf '\n==> %s\n' "$*"; }
 warn()  { printf 'WARNING: %s\n' "$*" >&2; }
@@ -46,22 +43,24 @@ ask_yes_no() {
     done
 }
 
+if [ -t 0 ]; then
+    INTERACTIVE=1
+else
+    INTERACTIVE=0
+    warn "No interactive terminal detected; running every step with default answers."
+fi
+
+ask_step() {
+    if [ "$INTERACTIVE" -eq 0 ]; then
+        return 0
+    fi
+    ask_yes_no "$1" y
+}
+
 if [ "$(id -u)" -eq 0 ]; then
     SUDO=()
 else
     SUDO=(sudo)
-fi
-
-if [ -t 0 ]; then
-    if ! ask_yes_no "Install the MesloLGS NF Nerd Font?" y; then
-        INSTALL_FONTS=0
-    fi
-
-    if ! ask_yes_no "Apply configuration files and keyd keyboard remapping?" y; then
-        LINK_CONFIGS=0
-    fi
-else
-    warn "No interactive terminal detected; using default answers (yes to all)."
 fi
 
 # ---------------------------------------------------------------------------
@@ -103,11 +102,6 @@ install_keyd() {
             warn "keyd is not available in this distribution's repositories; skipping keyd setup."
             return
         fi
-    fi
-
-    if [ "$LINK_CONFIGS" -ne 1 ]; then
-        echo "    skipping keyd config (config linking declined)"
-        return
     fi
 
     local src="$DOTFILES_DIR/keyd/default.conf"
@@ -299,24 +293,38 @@ install_tmux_plugins() {
 
 info "Installing dotfiles from $DOTFILES_DIR"
 
-install_apt_packages
-install_oh_my_zsh
+if ask_step "Update apt and install the required packages?"; then
+    install_apt_packages
+fi
 
-if [ "$LINK_CONFIGS" -eq 1 ]; then
+if ask_step "Install Oh My Zsh, zsh-autosuggestions and Powerlevel10k?"; then
+    install_oh_my_zsh
+fi
+
+if ask_step "Link configuration files into \$HOME?"; then
     link_configs
 fi
 
-install_keyd
+if ask_step "Install keyd and apply the German keyboard remapping?"; then
+    install_keyd
+fi
 
-if [ "$INSTALL_FONTS" -eq 1 ]; then
+if ask_step "Install the MesloLGS NF Nerd Font?"; then
     install_fonts
 fi
 
-install_rust
-install_opencode
+if ask_step "Install Rust via rustup?"; then
+    install_rust
+fi
+
+if ask_step "Install opencode?"; then
+    install_opencode
+fi
 
 # Must run after the tmux config is linked so TPM sees the @plugin entries.
-install_tmux_plugins
+if ask_step "Install the tmux plugin manager and plugins?"; then
+    install_tmux_plugins
+fi
 
 if [ "$SHELL" != "$(command -v zsh)" ]; then
     echo
